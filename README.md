@@ -21,7 +21,7 @@ git add .
 git commit -m "Eerste opzet: Netlify + Supabase verbindingstest"
 ```
 
-Maak daarna een nieuwe, LEGE repository aan op github.com (geen README/
+Maak daarna eeen nieuwe, LEGE repository aan op github.com (geen README/
 .gitignore aanvinken, die heb je al), en volg de instructies die GitHub
 toont onder "…or push an existing repository from the command line":
 
