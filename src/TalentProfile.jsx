@@ -36,6 +36,8 @@ export default function TalentProfile({ talentId, onBack }) {
   const [saveMsg, setSaveMsg] = useState('');
 
   const [talent, setTalent] = useState(null);
+  const [core, setCore] = useState({});
+  const [divisions, setDivisions] = useState([]);
   const [appearance, setAppearance] = useState({});
   const [guardian, setGuardian] = useState(null);
   const [skills, setSkills] = useState([]);
@@ -44,6 +46,7 @@ export default function TalentProfile({ talentId, onBack }) {
   const [bookings, setBookings] = useState([]);
   const [photos, setPhotos] = useState([]);
   const [photosLoading, setPhotosLoading] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(null);
 
   const load = async () => {
     setLoading(true);
@@ -56,6 +59,13 @@ export default function TalentProfile({ talentId, onBack }) {
         .single();
       if (tErr) throw tErr;
       setTalent(t);
+      setCore({
+        name: t.name,
+        date_of_birth: t.date_of_birth,
+        division_id: t.division_id,
+        status: t.status,
+        location: t.location,
+      });
       setAppearance({
         shoe_size: t.shoe_size,
         kids_clothing_size: t.kids_clothing_size,
@@ -66,6 +76,9 @@ export default function TalentProfile({ talentId, onBack }) {
         complexion: t.complexion,
         height_cm: t.height_cm,
       });
+
+      const { data: divs } = await supabase.from('divisions').select('id, name').order('name');
+      setDivisions(divs || []);
 
       const { data: g } = await supabase
         .from('guardian_talent_links')
@@ -133,9 +146,32 @@ export default function TalentProfile({ talentId, onBack }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, talentId]);
 
+  useEffect(() => {
+    if (lightboxIndex === null) return;
+    const onKey = (e) => {
+      if (e.key === 'Escape') setLightboxIndex(null);
+      if (e.key === 'ArrowRight') setLightboxIndex((i) => (i + 1) % photos.length);
+      if (e.key === 'ArrowLeft') setLightboxIndex((i) => (i - 1 + photos.length) % photos.length);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [lightboxIndex, photos.length]);
+
   const flashSaved = () => {
     setSaveMsg('Opgeslagen');
     setTimeout(() => setSaveMsg(''), 2000);
+  };
+
+  const saveCore = async () => {
+    setSaving(true);
+    const { data: updated, error: uErr } = await supabase.from('talent').update(core).eq('id', talentId).select('*, divisions(name)').single();
+    setSaving(false);
+    if (uErr) {
+      setError(uErr.message);
+    } else {
+      setTalent(updated);
+      flashSaved();
+    }
   };
 
   const saveAppearance = async () => {
@@ -245,7 +281,7 @@ export default function TalentProfile({ talentId, onBack }) {
             {!photosLoading && photos.length > 0 && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 14 }}>
                 {photos.map((url, i) => (
-                  <div key={i} style={{ aspectRatio: '3/4', overflow: 'hidden', background: '#f0f0f0' }}>
+                  <div key={i} onClick={() => setLightboxIndex(i)} style={{ aspectRatio: '3/4', overflow: 'hidden', background: '#f0f0f0', cursor: 'pointer' }}>
                     <img src={url} alt={`${talent.name} ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
                   </div>
                 ))}
@@ -256,22 +292,39 @@ export default function TalentProfile({ talentId, onBack }) {
 
         {tab === 'Overview' && (
           <div>
-            <div style={sectionTitle}>Core details</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, background: '#ececec', border: '1px solid #ececec' }}>
-              {[
-                ['Name', talent.name],
-                ['Date of birth', talent.date_of_birth ? new Date(talent.date_of_birth).toLocaleDateString('nl-NL') : '—'],
-                ['Division', talent.divisions?.name || '—'],
-                ['Status', talent.status],
-                ['Location', talent.location || '—'],
-                ['Height', talent.height_cm ? `${talent.height_cm} cm` : '—'],
-              ].map(([k, v]) => (
-                <div key={k} style={{ background: '#fff', padding: 20 }}>
-                  <div style={labelStyle}>{k}</div>
-                  <div style={{ fontSize: 15 }}>{v}</div>
-                </div>
-              ))}
+            <div style={sectionTitle}>Core details — bewerkbaar</div>
+            <Field label="Name" value={core.name} onChange={(v) => setCore((c) => ({ ...c, name: v }))} />
+            <Field label="Date of birth" value={core.date_of_birth} onChange={(v) => setCore((c) => ({ ...c, date_of_birth: v }))} type="date" />
+
+            <div style={fieldWrap}>
+              <div style={labelStyle}>Division</div>
+              <select value={core.division_id || ''} onChange={(e) => setCore((c) => ({ ...c, division_id: e.target.value || null }))} style={inputStyle}>
+                <option value="">—</option>
+                {divisions.map((d) => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
             </div>
+
+            <div style={fieldWrap}>
+              <div style={labelStyle}>Status</div>
+              <select value={core.status || ''} onChange={(e) => setCore((c) => ({ ...c, status: e.target.value }))} style={inputStyle}>
+                <option value="published">Published</option>
+                <option value="submission">Submission</option>
+                <option value="in_town">In town</option>
+                <option value="terminated">Terminated</option>
+              </select>
+            </div>
+
+            <Field label="Location" value={core.location} onChange={(v) => setCore((c) => ({ ...c, location: v }))} />
+
+            <button
+              onClick={saveCore}
+              disabled={saving}
+              style={{ height: 44, padding: '0 26px', border: `1px solid ${INK}`, background: INK, color: '#fff', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer' }}
+            >
+              {saving ? 'Opslaan...' : 'Save changes'}
+            </button>
           </div>
         )}
 
@@ -384,6 +437,64 @@ export default function TalentProfile({ talentId, onBack }) {
           </div>
         )}
       </div>
+
+      {lightboxIndex !== null && (
+        <div
+          onClick={() => setLightboxIndex(null)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(0,0,0,0.92)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <button
+            onClick={() => setLightboxIndex(null)}
+            style={{
+              position: 'absolute', top: 24, right: 24, width: 40, height: 40,
+              border: '1px solid rgba(255,255,255,0.3)', background: 'transparent', color: '#fff',
+              fontSize: 18, cursor: 'pointer', lineHeight: 1,
+            }}
+          >
+            ×
+          </button>
+
+          <div style={{ position: 'absolute', top: 26, left: 24, color: '#fff', fontSize: 12.5, letterSpacing: '0.08em' }}>
+            {lightboxIndex + 1} / {photos.length}
+          </div>
+
+          {photos.length > 1 && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setLightboxIndex((i) => (i - 1 + photos.length) % photos.length); }}
+              style={{
+                position: 'absolute', left: 24, top: '50%', transform: 'translateY(-50%)',
+                width: 48, height: 48, border: '1px solid rgba(255,255,255,0.3)', background: 'transparent',
+                color: '#fff', fontSize: 20, cursor: 'pointer',
+              }}
+            >
+              ‹
+            </button>
+          )}
+
+          <img
+            src={photos[lightboxIndex]}
+            alt={`${talent.name} ${lightboxIndex + 1}`}
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: '85vw', maxHeight: '85vh', objectFit: 'contain' }}
+          />
+
+          {photos.length > 1 && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setLightboxIndex((i) => (i + 1) % photos.length); }}
+              style={{
+                position: 'absolute', right: 24, top: '50%', transform: 'translateY(-50%)',
+                width: 48, height: 48, border: '1px solid rgba(255,255,255,0.3)', background: 'transparent',
+                color: '#fff', fontSize: 20, cursor: 'pointer',
+              }}
+            >
+              ›
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
