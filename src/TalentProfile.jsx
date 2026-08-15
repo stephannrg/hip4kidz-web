@@ -26,7 +26,7 @@ const SKILL_SUGGESTIONS = {
   Accents: ['British', 'American'],
 };
 
-const TABS = ['Overview', 'Appearance', 'Skills', 'Guardian & Payout', 'Bookings'];
+const TABS = ['Overview', 'Gallery', 'Appearance', 'Skills', 'Guardian & Payout', 'Bookings'];
 
 export default function TalentProfile({ talentId, onBack }) {
   const [tab, setTab] = useState('Overview');
@@ -42,6 +42,8 @@ export default function TalentProfile({ talentId, onBack }) {
   const [newSkillCategory, setNewSkillCategory] = useState('Dance');
   const [newSkillLabel, setNewSkillLabel] = useState('');
   const [bookings, setBookings] = useState([]);
+  const [photos, setPhotos] = useState([]);
+  const [photosLoading, setPhotosLoading] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -96,9 +98,40 @@ export default function TalentProfile({ talentId, onBack }) {
   };
 
   useEffect(() => {
+    setPhotos([]);
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [talentId]);
+
+  useEffect(() => {
+    if (tab !== 'Gallery' || photos.length > 0 || !talentId) return;
+    const loadPhotos = async () => {
+      setPhotosLoading(true);
+      try {
+        const { data: rows, error: mErr } = await supabase
+          .from('media_assets')
+          .select('storage_path')
+          .eq('talent_id', talentId)
+          .order('created_at');
+        if (mErr) throw mErr;
+
+        const paths = (rows || []).map((r) => r.storage_path);
+        if (paths.length > 0) {
+          const { data: signedData, error: sErr } = await supabase.storage
+            .from('talent-media')
+            .createSignedUrls(paths, 3600);
+          if (sErr) throw sErr;
+          setPhotos((signedData || []).filter((s) => !s.error).map((s) => s.signedUrl));
+        }
+      } catch (err) {
+        setError(err.message || String(err));
+      } finally {
+        setPhotosLoading(false);
+      }
+    };
+    loadPhotos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, talentId]);
 
   const flashSaved = () => {
     setSaveMsg('Opgeslagen');
@@ -170,7 +203,10 @@ export default function TalentProfile({ talentId, onBack }) {
       <div style={{ padding: '40px 40px 0' }}>
         <button
           onClick={onBack}
-          style={{ border: 'none', background: 'none', padding: 0, fontSize: 12.5, color: '#999', cursor: 'pointer', letterSpacing: '0.02em', marginBottom: 24 }}
+          style={{
+            height: 34, padding: '0 16px', border: `1px solid ${INK}`, background: INK, color: '#fff',
+            fontSize: 11.5, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer', marginBottom: 28,
+          }}
         >
           ← Back to Talent
         </button>
@@ -200,7 +236,24 @@ export default function TalentProfile({ talentId, onBack }) {
         </div>
       </div>
 
-      <div style={{ padding: 40, maxWidth: 640 }}>
+      <div style={{ padding: 40, maxWidth: tab === 'Gallery' ? 1040 : 640 }}>
+        {tab === 'Gallery' && (
+          <div style={{ maxWidth: 1000 }}>
+            <div style={sectionTitle}>Gallery {photos.length > 0 && `— ${photos.length} photos`}</div>
+            {photosLoading && <div style={{ color: '#aaa', fontSize: 13 }}>Laden...</div>}
+            {!photosLoading && photos.length === 0 && <div style={{ color: '#aaa', fontSize: 13 }}>Geen foto's gevonden voor dit model.</div>}
+            {!photosLoading && photos.length > 0 && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 14 }}>
+                {photos.map((url, i) => (
+                  <div key={i} style={{ aspectRatio: '3/4', overflow: 'hidden', background: '#f0f0f0' }}>
+                    <img src={url} alt={`${talent.name} ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {tab === 'Overview' && (
           <div>
             <div style={sectionTitle}>Core details</div>
