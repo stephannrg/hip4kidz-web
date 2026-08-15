@@ -17,7 +17,7 @@ export default function PackagesPage() {
     setLoading(true);
     const { data, error: pErr } = await supabase
       .from('packages')
-      .select('id, description, expires_at, created_at, contacts(name), package_talent(id, client_selected)')
+      .select('id, title, expires_at, created_at, contacts(name), package_items(id, client_selected)')
       .order('created_at', { ascending: false })
       .limit(200);
     if (pErr) setError(pErr.message);
@@ -41,7 +41,7 @@ export default function PackagesPage() {
       return;
     }
     const { data: members } = await supabase
-      .from('package_talent')
+      .from('package_items')
       .select('id, client_selected, client_comment, talent(id, name)')
       .eq('package_id', pkgId);
     setDetail({ package: pkg, members: members || [] });
@@ -86,10 +86,10 @@ export default function PackagesPage() {
               onClick={() => openPackage(p.id)}
               style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 100px 100px 140px', gap: 20, padding: '14px 0', borderBottom: '1px solid #ececec', fontSize: 13.5, cursor: 'pointer' }}
             >
-              <div>{p.description}</div>
+              <div>{p.title}</div>
               <div style={{ color: '#777' }}>{p.contacts?.name || '—'}</div>
-              <div>{p.package_talent?.length || 0}</div>
-              <div>{(p.package_talent || []).filter((m) => m.client_selected).length}</div>
+              <div>{p.package_items?.length || 0}</div>
+              <div>{(p.package_items || []).filter((m) => m.client_selected).length}</div>
               <div style={{ color: '#999' }}>{new Date(p.created_at).toLocaleDateString('nl-NL')}</div>
             </div>
           ))}
@@ -116,7 +116,7 @@ export default function PackagesPage() {
             {detail.package && (
               <>
                 <div style={{ fontSize: 10.5, letterSpacing: '0.2em', textTransform: 'uppercase', color: '#aaa', marginBottom: 16 }}>Package</div>
-                <h2 style={{ margin: '0 40px 8px 0', fontSize: 26, fontWeight: 300, letterSpacing: '-0.02em' }}>{detail.package.description}</h2>
+                <h2 style={{ margin: '0 40px 8px 0', fontSize: 26, fontWeight: 300, letterSpacing: '-0.02em' }}>{detail.package.title}</h2>
                 <div style={{ fontSize: 13.5, color: '#777', marginBottom: 24 }}>{detail.package.contacts?.name || 'Geen klant gekoppeld'}</div>
 
                 <div style={{ fontSize: 12, color: '#999', marginBottom: 24, padding: 14, border: '1px solid #ececec', wordBreak: 'break-all' }}>
@@ -202,7 +202,7 @@ function NewPackageForm({ onClose, onCreated }) {
     setSaving(true);
     const { data: pkg, error: pErr } = await supabase
       .from('packages')
-      .insert({ description, contact_id: contactId || null })
+      .insert({ title: description, type: 'casting', contact_id: contactId || null })
       .select()
       .single();
     if (pErr) {
@@ -211,7 +211,7 @@ function NewPackageForm({ onClose, onCreated }) {
       return;
     }
     const { error: mErr } = await supabase
-      .from('package_talent')
+      .from('package_items')
       .insert(selectedTalent.map((t) => ({ package_id: pkg.id, talent_id: t.id })));
     setSaving(false);
     if (mErr) {
