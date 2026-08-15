@@ -1,27 +1,20 @@
 import { useEffect, useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from './lib/supabaseClient.js';
 import Login from './Login.jsx';
+import TalentPage from './TalentPage.jsx';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const INK = '#22252b';
 
 export default function App() {
-  const [session, setSession] = useState(undefined); // undefined = nog aan het laden
+  const [session, setSession] = useState(undefined);
   const [profile, setProfile] = useState(null);
+  const [tab, setTab] = useState('talent'); // 'dash' | 'talent' | 'bookings' — alleen 'talent' is nu gebouwd
 
   useEffect(() => {
-    // Huidige sessie ophalen bij het laden van de pagina
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-    });
-
-    // Luisteren naar login/logout, zodat de UI meteen meebeweegt
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
     const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
     });
-
     return () => listener.subscription.unsubscribe();
   }, []);
 
@@ -30,7 +23,6 @@ export default function App() {
       setProfile(null);
       return;
     }
-    // Rol van de ingelogde gebruiker ophalen (voor later: role-based routing)
     supabase
       .from('user_profiles')
       .select('role, full_name')
@@ -43,55 +35,71 @@ export default function App() {
     await supabase.auth.signOut();
   };
 
-  // Nog aan het bepalen of er een sessie is — even niks tonen i.p.v. flikkeren
-  if (session === undefined) {
-    return null;
-  }
+  if (session === undefined) return null;
+  if (!session) return <Login supabase={supabase} onLoggedIn={setSession} />;
 
-  // Geen sessie: alleen het loginscherm, verder helemaal niks zichtbaar
-  if (!session) {
-    return <Login supabase={supabase} onLoggedIn={setSession} />;
-  }
-
-  // Wel ingelogd: hier komt straks het echte dashboard. Voor nu een
-  // simpele bevestigingspagina als basis om op door te bouwen.
-  return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 640, margin: '48px auto', padding: '0 24px', color: '#1a1a2e' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
-        <div>
-          <h1 style={{ fontSize: 22, margin: 0 }}>Hip4Kidz Platform</h1>
-          <p style={{ color: '#666', margin: '4px 0 0', fontSize: 14 }}>
-            Ingelogd als {session.user.email}
-            {profile?.role ? ` — rol: ${profile.role}` : ''}
-          </p>
+  if (!profile) {
+    return (
+      <div style={{ padding: 56, fontFamily: "'Helvetica Neue', Helvetica, -apple-system, Arial, sans-serif" }}>
+        <div style={{ padding: 16, background: '#fff8e1', borderRadius: 0, fontSize: 14, color: '#7a5c00' }}>
+          Geen rol gevonden in <code>user_profiles</code> voor {session.user.email}. Vraag een admin om deze
+          gebruiker een rol toe te wijzen.
         </div>
-        <button
-          onClick={handleLogout}
-          style={{
-            padding: '8px 14px',
-            background: 'transparent',
-            border: '1px solid #ccc',
-            borderRadius: 6,
-            fontSize: 13,
-            cursor: 'pointer',
-          }}
-        >
-          Uitloggen
-        </button>
       </div>
+    );
+  }
 
-      {!profile && (
-        <div style={{ padding: 16, background: '#fff8e1', borderRadius: 8, fontSize: 14, color: '#7a5c00' }}>
-          Geen rol gevonden in <code>user_profiles</code> voor dit account. Vraag een admin om deze
-          gebruiker een rol toe te wijzen voordat het dashboard verder gebouwd wordt.
+  const navBtn = (id, label) => {
+    const on = tab === id;
+    return (
+      <button
+        key={id}
+        onClick={() => setTab(id)}
+        style={{
+          border: 'none', background: 'none', padding: 0, height: '100%',
+          fontSize: 13.5, letterSpacing: '0.02em', cursor: 'pointer',
+          color: on ? INK : '#8e8e8e', borderBottom: `1px solid ${on ? INK : 'transparent'}`, marginBottom: -1,
+        }}
+      >
+        {label}
+      </button>
+    );
+  };
+
+  return (
+    <div style={{ minHeight: '100vh', fontFamily: "'Helvetica Neue', Helvetica, -apple-system, Arial, sans-serif", color: INK, background: '#fff', WebkitFontSmoothing: 'antialiased' }}>
+      <header style={{ position: 'sticky', top: 0, zIndex: 20, background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(20px)', borderBottom: '1px solid #ececec' }}>
+        <div style={{ maxWidth: 1640, margin: '0 auto', padding: '0 56px', height: 66, display: 'flex', alignItems: 'center', gap: 56 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <span style={{ fontSize: 15, fontWeight: 600, letterSpacing: '-0.01em' }}>Hip4Kidz</span>
+            <span style={{ fontSize: 11, letterSpacing: '0.16em', color: '#999', textTransform: 'uppercase', paddingLeft: 14, borderLeft: '1px solid #e2e2e2' }}>Agency</span>
+          </div>
+          <nav style={{ display: 'flex', alignItems: 'center', gap: 36, height: '100%' }}>
+            {navBtn('dash', 'Priority queue')}
+            {navBtn('talent', 'Talent')}
+            {navBtn('bookings', 'Bookings')}
+          </nav>
+          <div style={{ flex: 1 }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 32 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 13, letterSpacing: '0.01em' }}>{session.user.email}</span>
+              <button
+                onClick={handleLogout}
+                style={{ fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#999', background: 'none', border: 'none', cursor: 'pointer' }}
+              >
+                Log out
+              </button>
+            </div>
+          </div>
         </div>
+      </header>
+
+      {tab === 'talent' && <TalentPage />}
+      {tab === 'dash' && (
+        <div style={{ padding: 96, textAlign: 'center', color: '#aaa', fontSize: 14 }}>Priority queue — volgt hierna.</div>
       )}
-
-      {profile && (
-        <div style={{ padding: 16, border: '1px solid #e5e5e5', borderRadius: 8, fontSize: 14 }}>
-          Dashboard-inhoud komt hier — deze pagina bevestigt dat inloggen werkt en dat de rol
-          ({profile.role}) correct wordt opgehaald.
-        </div>
+      {tab === 'bookings' && (
+        <div style={{ padding: 96, textAlign: 'center', color: '#aaa', fontSize: 14 }}>Bookings — volgt hierna.</div>
       )}
     </div>
   );
