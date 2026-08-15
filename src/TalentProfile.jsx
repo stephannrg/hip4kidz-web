@@ -101,10 +101,10 @@ export default function TalentProfile({ talentId, onBack }) {
 
       const { data: b } = await supabase
         .from('booking_talent')
-        .select('availability_status, bookings(id, description, status, shoot_date)')
+        .select('availability_status, bookings(id, description, status, shoot_date, client_name_raw, contacts(name))')
         .eq('talent_id', talentId)
         .order('created_at', { ascending: false })
-        .limit(5);
+        .limit(50);
       setBookings(b || []);
     } catch (err) {
       setError(err.message || String(err));
@@ -536,13 +536,13 @@ export default function TalentProfile({ talentId, onBack }) {
 
         {tab === 'Bookings' && (
           <div>
-            <div style={sectionTitle}>Recent bookings</div>
-            {bookings.length === 0 && <div style={{ color: '#aaa', fontSize: 13 }}>Geen bookings gevonden.</div>}
+            <div style={sectionTitle}>Bookings {bookings.length > 0 && `— ${bookings.length}`}</div>
+            {bookings.length === 0 && <div style={{ color: '#aaa', fontSize: 13 }}>Geen bookings gevonden voor dit talent.</div>}
             {bookings.map((b, i) => (
               <div key={i} style={{ padding: '16px 0', borderBottom: '1px solid #ececec' }}>
                 <div style={{ fontSize: 15 }}>{b.bookings?.description || '—'}</div>
                 <div style={{ fontSize: 12.5, color: '#8e8e8e', marginTop: 5 }}>
-                  {b.bookings?.shoot_date || '—'} · {b.bookings?.status} · beschikbaarheid: {b.availability_status}
+                  {b.bookings?.contacts?.name || b.bookings?.client_name_raw || 'Onbekende klant'} · {b.bookings?.shoot_date || '—'} · {b.bookings?.status} · beschikbaarheid: {b.availability_status}
                 </div>
               </div>
             ))}
