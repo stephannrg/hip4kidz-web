@@ -44,6 +44,9 @@ export default function TalentProfile({ talentId, onBack }) {
   const [newSkillCategory, setNewSkillCategory] = useState('Dance');
   const [newSkillLabel, setNewSkillLabel] = useState('');
   const [bookings, setBookings] = useState([]);
+  const [newGuardian, setNewGuardian] = useState({ name: '', email: '', phone: '', address_street: '', address_postal_code: '', address_city: '', address_country: 'Nederland', iban: '', iban_account_holder: '' });
+  const [guardianSearch, setGuardianSearch] = useState('');
+  const [guardianSearchResults, setGuardianSearchResults] = useState([]);
   const [photos, setPhotos] = useState([]);
   const [photosLoading, setPhotosLoading] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(null);
@@ -183,6 +186,63 @@ export default function TalentProfile({ talentId, onBack }) {
     } else {
       flashSaved();
     }
+  };
+
+  const searchGuardians = async () => {
+    if (!guardianSearch.trim()) {
+      setGuardianSearchResults([]);
+      return;
+    }
+    const { data } = await supabase
+      .from('guardian_accounts')
+      .select('id, name, email')
+      .ilike('email', `%${guardianSearch.trim()}%`)
+      .limit(10);
+    setGuardianSearchResults(data || []);
+  };
+
+  const linkExistingGuardian = async (guardianAccountId) => {
+    setSaving(true);
+    const { error: lErr } = await supabase
+      .from('guardian_talent_links')
+      .insert({ talent_id: talentId, guardian_account_id: guardianAccountId });
+    setSaving(false);
+    if (lErr) {
+      setError(lErr.message);
+      return;
+    }
+    await load();
+    setGuardianSearch('');
+    setGuardianSearchResults([]);
+    flashSaved();
+  };
+
+  const createAndLinkGuardian = async () => {
+    if (!newGuardian.name.trim()) {
+      setError('Naam van de voogd is verplicht.');
+      return;
+    }
+    setSaving(true);
+    const { data: created, error: cErr } = await supabase
+      .from('guardian_accounts')
+      .insert(newGuardian)
+      .select()
+      .single();
+    if (cErr) {
+      setSaving(false);
+      setError(cErr.message);
+      return;
+    }
+    const { error: lErr } = await supabase
+      .from('guardian_talent_links')
+      .insert({ talent_id: talentId, guardian_account_id: created.id });
+    setSaving(false);
+    if (lErr) {
+      setError(lErr.message);
+      return;
+    }
+    setGuardian(created);
+    flashSaved();
   };
 
   const saveGuardian = async () => {
@@ -398,7 +458,59 @@ export default function TalentProfile({ talentId, onBack }) {
           <div>
             <div style={sectionTitle}>Guardian & payout — bewerkbaar</div>
             {!guardian ? (
-              <div style={{ color: '#aaa', fontSize: 13 }}>Geen voogd-account gekoppeld aan dit talent.</div>
+              <div>
+                <div style={{ ...labelStyle, marginBottom: 14 }}>Bestaande voogd koppelen (op e-mailadres)</div>
+                <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+                  <input
+                    value={guardianSearch}
+                    onChange={(e) => setGuardianSearch(e.target.value)}
+                    placeholder="ouder@voorbeeld.nl"
+                    style={inputStyle}
+                  />
+                  <button
+                    onClick={searchGuardians}
+                    style={{ height: 38, padding: '0 20px', border: `1px solid ${INK}`, background: '#fff', color: INK, fontSize: 11.5, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                  >
+                    Search
+                  </button>
+                </div>
+                {guardianSearchResults.length > 0 && (
+                  <div style={{ marginBottom: 32, border: '1px solid #ececec' }}>
+                    {guardianSearchResults.map((g) => (
+                      <div key={g.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', borderBottom: '1px solid #ececec' }}>
+                        <div>
+                          <div style={{ fontSize: 14 }}>{g.name}</div>
+                          <div style={{ fontSize: 12, color: '#8e8e8e' }}>{g.email}</div>
+                        </div>
+                        <button
+                          onClick={() => linkExistingGuardian(g.id)}
+                          style={{ border: 'none', background: 'none', color: INK, cursor: 'pointer', fontSize: 12, textDecoration: 'underline' }}
+                        >
+                          Link
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div style={{ ...labelStyle, marginBottom: 14, marginTop: 32 }}>Of een nieuwe voogd aanmaken</div>
+                <Field label="Name" value={newGuardian.name} onChange={(v) => setNewGuardian((g) => ({ ...g, name: v }))} />
+                <Field label="Email" value={newGuardian.email} onChange={(v) => setNewGuardian((g) => ({ ...g, email: v }))} />
+                <Field label="Phone" value={newGuardian.phone} onChange={(v) => setNewGuardian((g) => ({ ...g, phone: v }))} />
+                <Field label="Street" value={newGuardian.address_street} onChange={(v) => setNewGuardian((g) => ({ ...g, address_street: v }))} />
+                <Field label="Postal code" value={newGuardian.address_postal_code} onChange={(v) => setNewGuardian((g) => ({ ...g, address_postal_code: v }))} />
+                <Field label="City" value={newGuardian.address_city} onChange={(v) => setNewGuardian((g) => ({ ...g, address_city: v }))} />
+                <Field label="Country" value={newGuardian.address_country} onChange={(v) => setNewGuardian((g) => ({ ...g, address_country: v }))} />
+                <Field label="IBAN" value={newGuardian.iban} onChange={(v) => setNewGuardian((g) => ({ ...g, iban: v }))} />
+                <Field label="Account holder name" value={newGuardian.iban_account_holder} onChange={(v) => setNewGuardian((g) => ({ ...g, iban_account_holder: v }))} />
+                <button
+                  onClick={createAndLinkGuardian}
+                  disabled={saving}
+                  style={{ height: 44, padding: '0 26px', border: `1px solid ${INK}`, background: INK, color: '#fff', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer' }}
+                >
+                  {saving ? 'Opslaan...' : 'Create & link guardian'}
+                </button>
+              </div>
             ) : (
               <>
                 <Field label="Name" value={guardian.name} onChange={(v) => setGuardian((g) => ({ ...g, name: v }))} />
