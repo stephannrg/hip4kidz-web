@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { supabase } from './lib/supabaseClient.js';
 import Login from './Login.jsx';
 import TalentPage from './TalentPage.jsx';
+import PackagesPage from './PackagesPage.jsx';
+import DashboardPage from './DashboardPage.jsx';
 
 const INK = '#22252b';
 
@@ -77,6 +79,7 @@ export default function App() {
           <nav style={{ display: 'flex', alignItems: 'center', gap: 36, height: '100%' }}>
             {navBtn('dash', 'Priority queue')}
             {navBtn('talent', 'Talent')}
+            {navBtn('packages', 'Packages')}
             {navBtn('bookings', 'Bookings')}
           </nav>
           <div style={{ flex: 1 }} />
@@ -95,9 +98,8 @@ export default function App() {
       </header>
 
       {tab === 'talent' && <TalentPage />}
-      {tab === 'dash' && (
-        <div style={{ padding: 96, textAlign: 'center', color: '#aaa', fontSize: 14 }}>Priority queue — volgt hierna.</div>
-      )}
+      {tab === 'packages' && <PackagesPage />}
+      {tab === 'dash' && <DashboardPage />}
       {tab === 'bookings' && (
         <div style={{ padding: 96, textAlign: 'center', color: '#aaa', fontSize: 14 }}>Bookings — volgt hierna.</div>
       )}
