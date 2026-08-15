@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from './lib/supabaseClient.js';
+import TalentProfile from './TalentProfile.jsx';
 
 // ============================================================
 // Design tokens — 1:1 overgenomen uit de Claude Design handoff
@@ -80,6 +81,26 @@ const tagStyle = (color) => ({
   textTransform: 'uppercase',
 });
 
+// Supabase geeft standaard maximaal 1000 rijen per query terug (een
+// PostgREST-instelling, geen keuze van ons) — bij >1000 modellen moet je
+// dus pagineren om echt alles op te halen.
+const fetchAllRows = async (queryBuilder) => {
+  const pageSize = 1000;
+  let from = 0;
+  let all = [];
+  while (true) {
+    const { data, error } = await queryBuilder(from, from + pageSize - 1);
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    all = all.concat(data);
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+  return all;
+};
+
+const PLACEHOLDER_BG = 'repeating-linear-gradient(135deg,#f6f6f6 0 9px,#efefef 9px 18px)';
+
 export default function TalentPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -90,35 +111,64 @@ export default function TalentPage() {
   const [more, setMore] = useState(false);
   const [view, setView] = useState('grid');
   const [drawer, setDrawer] = useState(null);
+  const [profileId, setProfileId] = useState(null);
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       setError(null);
-      const { data, error: qError } = await supabase
-        .from('talent')
-        .select(
-          'id, name, date_of_birth, status, shoe_size, kids_clothing_size, hair_color, hair_length, hair_type, eye_color, divisions(name)'
-        )
-        .eq('status', 'published') // gearchiveerde/terminated modellen niet standaard tonen
-        .order('name');
+      try {
+        const talentRows = await fetchAllRows((from, to) =>
+          supabase
+            .from('talent')
+            .select(
+              'id, name, date_of_birth, status, shoe_size, kids_clothing_size, hair_color, hair_length, hair_type, eye_color, divisions(name)'
+            )
+            .eq('status', 'published')
+            .order('name')
+            .range(from, to)
+        );
 
-      if (qError) {
-        setError(qError.message);
+        const photoRows = await fetchAllRows((from, to) =>
+          supabase.from('talent_primary_photo').select('talent_id, storage_path').range(from, to)
+        );
+        const photoByTalent = new Map(photoRows.map((p) => [p.talent_id, p.storage_path]));
+
+        // Ondertekende (tijdelijke) URL's ophalen — nodig omdat de bucket
+        // bewust prive is (geen publiek raadbare kinderfoto's). Supabase
+        // staat max. 1000 paden per aanroep toe, dus in batches opdelen.
+        const paths = photoRows.map((p) => p.storage_path);
+        const signedUrlByPath = new Map();
+        const BATCH_SIZE = 1000;
+        for (let i = 0; i < paths.length; i += BATCH_SIZE) {
+          const batch = paths.slice(i, i + BATCH_SIZE);
+          if (batch.length === 0) continue;
+          const { data: signedData, error: signError } = await supabase.storage
+            .from('talent-media')
+            .createSignedUrls(batch, 3600); // 1 uur geldig
+          if (signError) throw signError;
+          (signedData || []).forEach((s) => signedUrlByPath.set(s.path, s.signedUrl));
+        }
+
+        const enriched = talentRows.map((t) => {
+          const storagePath = photoByTalent.get(t.id);
+          const photoUrl = storagePath ? signedUrlByPath.get(storagePath) : null;
+          return {
+            ...t,
+            age: calcAge(t.date_of_birth),
+            division: t.divisions?.name || null,
+            gender: deriveGender(t.divisions?.name),
+            hairType: [t.hair_length, t.hair_type].filter(Boolean).join(', ') || null,
+            photoUrl: photoUrl || null,
+          };
+        });
+
+        setTalent(enriched);
+      } catch (err) {
+        setError(err.message || String(err));
+      } finally {
         setLoading(false);
-        return;
       }
-
-      const enriched = (data || []).map((t) => ({
-        ...t,
-        age: calcAge(t.date_of_birth),
-        division: t.divisions?.name || null,
-        gender: deriveGender(t.divisions?.name),
-        hairType: [t.hair_length, t.hair_type].filter(Boolean).join(', ') || null,
-      }));
-
-      setTalent(enriched);
-      setLoading(false);
     };
     load();
   }, []);
@@ -190,6 +240,7 @@ export default function TalentPage() {
 
   const openDrawer = (t) => {
     setDrawer({
+      talentId: t.id,
       kind: 'Talent',
       title: t.name,
       subtitle: `${t.division || '—'} division · ${t.age ?? '—'} years · ${STATUS_LABELS[t.status] || t.status}`,
@@ -207,6 +258,10 @@ export default function TalentPage() {
   }
   if (error) {
     return <div style={{ padding: 56, fontFamily: 'Helvetica Neue, Helvetica, -apple-system, Arial, sans-serif', color: RED }}>Fout bij laden: {error}</div>;
+  }
+
+  if (profileId) {
+    return <TalentProfile talentId={profileId} onBack={() => setProfileId(null)} />;
   }
 
   return (
@@ -306,7 +361,7 @@ export default function TalentPage() {
                   onClick={() => openDrawer(t)}
                   style={{ display: 'grid', gridTemplateColumns: '56px 1.6fr 96px 110px 130px 1fr 120px', gap: 22, alignItems: 'center', padding: '14px 0', borderBottom: '1px solid #ececec', cursor: 'pointer' }}
                 >
-                  <div style={{ width: 44, height: 56, background: 'repeating-linear-gradient(135deg,#f6f6f6 0 6px,#efefef 6px 12px)' }} />
+                  <div style={{ width: 44, height: 56, background: t.photoUrl ? `#f0f0f0 url(${t.photoUrl}) center/cover` : PLACEHOLDER_BG }} />
                   <div>
                     <div style={{ fontSize: 12.5, letterSpacing: '0.14em', textTransform: 'uppercase' }}>{t.name}</div>
                     <div style={{ fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#a4a4a4', marginTop: 5 }}>{t.division || '—'}</div>
@@ -327,9 +382,13 @@ export default function TalentPage() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(178px, 1fr))', gap: '34px 22px' }}>
               {results.map((t) => (
                 <div key={t.id} onClick={() => openDrawer(t)} style={{ cursor: 'pointer' }}>
-                  <div style={{ position: 'relative', aspectRatio: '3/4', background: 'repeating-linear-gradient(135deg,#f6f6f6 0 9px,#efefef 9px 18px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', padding: 12 }}>
-                    <span style={{ fontSize: 9.5, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#a2a2a2' }}>portrait</span>
-                    <span style={{ display: 'block', width: 7, height: 7, background: statusColor(t.status) }} />
+                  <div style={{ position: 'relative', aspectRatio: '3/4', background: t.photoUrl ? '#f0f0f0' : PLACEHOLDER_BG, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', padding: 12, overflow: 'hidden' }}>
+                    {t.photoUrl ? (
+                      <img src={t.photoUrl} alt={t.name} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+                    ) : (
+                      <span style={{ fontSize: 9.5, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#a2a2a2' }}>portrait</span>
+                    )}
+                    <span style={{ position: 'relative', display: 'block', width: 7, height: 7, background: statusColor(t.status) }} />
                   </div>
                   <div style={{ paddingTop: 16 }}>
                     <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
@@ -376,7 +435,7 @@ export default function TalentPage() {
               ))}
             </div>
             <div style={{ display: 'flex', gap: 14 }}>
-              <button onClick={() => setDrawer(null)} style={{ flex: 1, height: 50, border: `1px solid ${INK}`, background: INK, color: '#fff', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer' }}>Add to package</button>
+              <button onClick={() => { setProfileId(drawer.talentId); setDrawer(null); }} style={{ flex: 1, height: 50, border: `1px solid ${INK}`, background: INK, color: '#fff', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer' }}>View full profile</button>
               <button onClick={() => setDrawer(null)} style={{ height: 50, padding: '0 26px', border: '1px solid #e2e2e2', background: '#fff', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#666', cursor: 'pointer' }}>Close</button>
             </div>
           </aside>
