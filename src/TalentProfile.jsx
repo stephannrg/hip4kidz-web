@@ -83,28 +83,31 @@ export default function TalentProfile({ talentId, onBack }) {
       const { data: divs } = await supabase.from('divisions').select('id, name').order('name');
       setDivisions(divs || []);
 
-      const { data: g } = await supabase
+      const { data: g, error: gErr } = await supabase
         .from('guardian_talent_links')
         .select('guardian_accounts(*)')
         .eq('talent_id', talentId)
         .limit(1)
         .maybeSingle();
+      if (gErr) throw gErr;
       setGuardian(g?.guardian_accounts || null);
 
-      const { data: s } = await supabase
+      const { data: s, error: sErr } = await supabase
         .from('talent_skills')
         .select('*')
         .eq('talent_id', talentId)
         .order('category')
         .order('label');
+      if (sErr) throw sErr;
       setSkills(s || []);
 
-      const { data: b } = await supabase
+      const { data: b, error: bErr } = await supabase
         .from('booking_talent')
         .select('availability_status, bookings(id, description, status, shoot_date, client_name_raw, contacts(name))')
         .eq('talent_id', talentId)
         .order('created_at', { ascending: false })
         .limit(50);
+      if (bErr) throw bErr;
       setBookings(b || []);
     } catch (err) {
       setError(err.message || String(err));
