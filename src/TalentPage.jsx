@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from './lib/supabaseClient.js';
+import TalentProfile from './TalentProfile.jsx';
 
 // ============================================================
 // Design tokens — 1:1 overgenomen uit de Claude Design handoff
@@ -110,6 +111,7 @@ export default function TalentPage() {
   const [more, setMore] = useState(false);
   const [view, setView] = useState('grid');
   const [drawer, setDrawer] = useState(null);
+  const [profileId, setProfileId] = useState(null);
 
   useEffect(() => {
     const load = async () => {
@@ -238,6 +240,7 @@ export default function TalentPage() {
 
   const openDrawer = (t) => {
     setDrawer({
+      talentId: t.id,
       kind: 'Talent',
       title: t.name,
       subtitle: `${t.division || '—'} division · ${t.age ?? '—'} years · ${STATUS_LABELS[t.status] || t.status}`,
@@ -255,6 +258,10 @@ export default function TalentPage() {
   }
   if (error) {
     return <div style={{ padding: 56, fontFamily: 'Helvetica Neue, Helvetica, -apple-system, Arial, sans-serif', color: RED }}>Fout bij laden: {error}</div>;
+  }
+
+  if (profileId) {
+    return <TalentProfile talentId={profileId} onBack={() => setProfileId(null)} />;
   }
 
   return (
@@ -428,7 +435,7 @@ export default function TalentPage() {
               ))}
             </div>
             <div style={{ display: 'flex', gap: 14 }}>
-              <button onClick={() => setDrawer(null)} style={{ flex: 1, height: 50, border: `1px solid ${INK}`, background: INK, color: '#fff', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer' }}>Add to package</button>
+              <button onClick={() => { setProfileId(drawer.talentId); setDrawer(null); }} style={{ flex: 1, height: 50, border: `1px solid ${INK}`, background: INK, color: '#fff', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer' }}>View full profile</button>
               <button onClick={() => setDrawer(null)} style={{ height: 50, padding: '0 26px', border: '1px solid #e2e2e2', background: '#fff', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#666', cursor: 'pointer' }}>Close</button>
             </div>
           </aside>
