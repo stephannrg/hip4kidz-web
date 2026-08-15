@@ -132,17 +132,20 @@ export default function TalentPage() {
         );
         const photoByTalent = new Map(photoRows.map((p) => [p.talent_id, p.storage_path]));
 
-        // Ondertekende (tijdelijke) URL's in een batch-aanroep ophalen —
-        // veel efficienter dan 1600 losse aanroepen, en nodig omdat de
-        // bucket bewust prive is (geen publiek raadbare kinderfoto's).
+        // Ondertekende (tijdelijke) URL's ophalen — nodig omdat de bucket
+        // bewust prive is (geen publiek raadbare kinderfoto's). Supabase
+        // staat max. 1000 paden per aanroep toe, dus in batches opdelen.
         const paths = photoRows.map((p) => p.storage_path);
-        let signedUrlByPath = new Map();
-        if (paths.length > 0) {
+        const signedUrlByPath = new Map();
+        const BATCH_SIZE = 1000;
+        for (let i = 0; i < paths.length; i += BATCH_SIZE) {
+          const batch = paths.slice(i, i + BATCH_SIZE);
+          if (batch.length === 0) continue;
           const { data: signedData, error: signError } = await supabase.storage
             .from('talent-media')
-            .createSignedUrls(paths, 3600); // 1 uur geldig
+            .createSignedUrls(batch, 3600); // 1 uur geldig
           if (signError) throw signError;
-          signedUrlByPath = new Map((signedData || []).map((s) => [s.path, s.signedUrl]));
+          (signedData || []).forEach((s) => signedUrlByPath.set(s.path, s.signedUrl));
         }
 
         const enriched = talentRows.map((t) => {
