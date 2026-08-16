@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from './lib/supabaseClient.js';
+import TalentProfile from './TalentProfile.jsx';
 
 const INK = '#22252b';
 const RED = '#d0021b';
@@ -21,6 +22,12 @@ export default function PackageProfile({ packageId, onBack }) {
   const [mailBody, setMailBody] = useState('');
   const [mailSending, setMailSending] = useState(false);
   const [mailResult, setMailResult] = useState('');
+  const [viewingTalentId, setViewingTalentId] = useState(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editContactId, setEditContactId] = useState('');
+  const [contacts, setContacts] = useState([]);
+  const [detailSaving, setDetailSaving] = useState(false);
+  const [detailSaveMsg, setDetailSaveMsg] = useState('');
 
   const load = async () => {
     setLoading(true);
@@ -29,12 +36,33 @@ export default function PackageProfile({ packageId, onBack }) {
       const { data: p, error: pErr } = await supabase.from('packages').select('*, contacts(name)').eq('id', packageId).single();
       if (pErr) throw pErr;
       setPkg(p);
+      setEditTitle(p.title || '');
+      setEditContactId(p.contact_id || '');
+
+      const { data: contactList } = await supabase.from('contacts').select('id, name').order('name').limit(500);
+      setContacts(contactList || []);
 
       const { data: m } = await supabase
         .from('package_items')
         .select('id, client_selected, client_comment, talent(id, name)')
         .eq('package_id', packageId);
-      setMembers(m || []);
+
+      const talentIds = (m || []).map((row) => row.talent?.id).filter(Boolean);
+      let photoByTalent = new Map();
+      if (talentIds.length > 0) {
+        const { data: photoRows } = await supabase
+          .from('talent_primary_photo')
+          .select('talent_id, storage_path')
+          .in('talent_id', talentIds);
+        if (photoRows && photoRows.length > 0) {
+          const paths = photoRows.map((p) => p.storage_path);
+          const { data: signedData } = await supabase.storage.from('talent-media').createSignedUrls(paths, 3600);
+          const signedByPath = new Map((signedData || []).map((s) => [s.path, s.signedUrl]));
+          photoByTalent = new Map(photoRows.map((p) => [p.talent_id, signedByPath.get(p.storage_path) || null]));
+        }
+      }
+
+      setMembers((m || []).map((row) => ({ ...row, photoUrl: row.talent?.id ? photoByTalent.get(row.talent.id) || null : null })));
       setChecked(new Set());
     } catch (err) {
       setError(err.message || String(err));
@@ -47,6 +75,22 @@ export default function PackageProfile({ packageId, onBack }) {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [packageId]);
+
+  const saveDetails = async () => {
+    setDetailSaving(true);
+    const { error: uErr } = await supabase
+      .from('packages')
+      .update({ title: editTitle, contact_id: editContactId || null })
+      .eq('id', packageId);
+    setDetailSaving(false);
+    if (uErr) {
+      setError(uErr.message);
+      return;
+    }
+    setDetailSaveMsg('Opgeslagen');
+    setTimeout(() => setDetailSaveMsg(''), 2000);
+    load();
+  };
 
   const toggleCheck = (talentId) => {
     setChecked((c) => {
@@ -143,6 +187,10 @@ export default function PackageProfile({ packageId, onBack }) {
   if (error) return <div style={{ padding: 56, fontFamily: "'Helvetica Neue', Helvetica, -apple-system, Arial, sans-serif", color: RED }}>Fout: {error}</div>;
   if (!pkg) return null;
 
+  if (viewingTalentId) {
+    return <TalentProfile talentId={viewingTalentId} onBack={() => setViewingTalentId(null)} />;
+  }
+
   return (
     <div style={{ fontFamily: "'Helvetica Neue', Helvetica, -apple-system, Arial, sans-serif", color: INK }}>
       <div style={{ padding: '40px 40px 0' }}>
@@ -153,13 +201,35 @@ export default function PackageProfile({ packageId, onBack }) {
           ← Back to Packages
         </button>
 
-        <h1 style={{ margin: '0 0 8px', fontSize: 36, fontWeight: 300, letterSpacing: '-0.02em' }}>{pkg.title}</h1>
-        <div style={{ fontSize: 13.5, color: '#777', marginBottom: 32, paddingBottom: 24, borderBottom: '1px solid #ececec' }}>
-          {pkg.contacts?.name || 'Geen klant gekoppeld'}
-        </div>
+        <h1 style={{ margin: '0 0 24px', fontSize: 36, fontWeight: 300, letterSpacing: '-0.02em' }}>{pkg.title}</h1>
       </div>
 
       <div style={{ padding: '0 40px 140px', maxWidth: 760 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <div style={sectionTitle}>Details — bewerkbaar</div>
+          {detailSaveMsg && <div style={{ fontSize: 11.5, color: '#1f9d55' }}>{detailSaveMsg}</div>}
+        </div>
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 10.5, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#aaa', marginBottom: 9 }}>Title</div>
+          <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} style={inputStyle} />
+        </div>
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ fontSize: 10.5, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#aaa', marginBottom: 9 }}>Client</div>
+          <select value={editContactId} onChange={(e) => setEditContactId(e.target.value)} style={inputStyle}>
+            <option value="">— geen —</option>
+            {contacts.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </div>
+        <button
+          onClick={saveDetails}
+          disabled={detailSaving}
+          style={{ height: 42, padding: '0 22px', border: `1px solid ${INK}`, background: INK, color: '#fff', fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer', marginBottom: 40 }}
+        >
+          {detailSaving ? 'Opslaan...' : 'Save changes'}
+        </button>
+
         <div style={{ fontSize: 12, color: '#999', marginBottom: 32, padding: 14, border: '1px solid #ececec', wordBreak: 'break-all' }}>
           Deelbare link: {window.location.origin}/package/{pkg.view_token}
         </div>
@@ -179,22 +249,33 @@ export default function PackageProfile({ packageId, onBack }) {
               checked={m.talent?.id ? checked.has(m.talent.id) : false}
               onChange={() => m.talent?.id && toggleCheck(m.talent.id)}
             />
-            <span style={{ flex: 1 }}>{m.talent?.name || 'Onbekend'}</span>
+            <div
+              style={{ width: 34, height: 44, flex: 'none', background: m.photoUrl ? `#f0f0f0 url(${m.photoUrl}) center/cover` : 'repeating-linear-gradient(135deg,#f6f6f6 0 6px,#efefef 6px 12px)', cursor: m.talent?.id ? 'pointer' : 'default' }}
+              onClick={() => m.talent?.id && setViewingTalentId(m.talent.id)}
+            />
+            <span
+              style={{ flex: 1, cursor: m.talent?.id ? 'pointer' : 'default' }}
+              onClick={() => m.talent?.id && setViewingTalentId(m.talent.id)}
+            >
+              {m.talent?.name || 'Onbekend'}
+            </span>
             <span style={{ fontSize: 11, color: m.client_selected ? '#1f9d55' : '#bbb' }}>
               {m.client_selected ? '✓ Geselecteerd door klant' : 'Nog niet geselecteerd'}
             </span>
-            <button onClick={() => removeTalent(m.id)} style={{ border: 'none', background: 'none', color: '#bbb', cursor: 'pointer', fontSize: 12 }}>Remove</button>
+            <button onClick={() => removeTalent(m.id)} style={{ height: 28, padding: '0 12px', border: '1px solid #e2e2e2', background: '#fff', color: '#999', cursor: 'pointer', fontSize: 11, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Remove</button>
           </div>
         ))}
         {members.length === 0 && <div style={{ color: '#aaa', fontSize: 13, marginBottom: 20 }}>Nog geen talent toegevoegd.</div>}
 
-        <div style={{ marginTop: 20, marginBottom: 40 }}>
-          <input value={talentQuery} onChange={(e) => searchTalent(e.target.value)} placeholder="Talent toevoegen — zoek op naam" style={inputStyle} />
+        <div style={{ marginTop: 32, marginBottom: 40 }}>
+          <div style={{ fontSize: 10.5, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#aaa', marginBottom: 12 }}>+ Add talent to this package</div>
+          <input value={talentQuery} onChange={(e) => searchTalent(e.target.value)} placeholder="Zoek op naam..." style={inputStyle} />
           {talentResults.length > 0 && (
             <div style={{ border: '1px solid #ececec', marginTop: 6 }}>
               {talentResults.map((t) => (
-                <div key={t.id} onClick={() => addTalent(t)} style={{ padding: '10px 12px', borderBottom: '1px solid #ececec', fontSize: 13.5, cursor: 'pointer' }}>
-                  {t.name}
+                <div key={t.id} onClick={() => addTalent(t)} style={{ padding: '10px 12px', borderBottom: '1px solid #ececec', fontSize: 13.5, cursor: 'pointer', display: 'flex', justifyContent: 'space-between' }}>
+                  <span>{t.name}</span>
+                  <span style={{ color: '#999', fontSize: 11 }}>+ Add</span>
                 </div>
               ))}
             </div>
