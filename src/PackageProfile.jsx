@@ -13,6 +13,7 @@ export default function PackageProfile({ packageId, onBack }) {
   const [pkg, setPkg] = useState(null);
   const [members, setMembers] = useState([]);
   const [checked, setChecked] = useState(new Set());
+  const [view, setView] = useState('grid');
 
   const [talentQuery, setTalentQuery] = useState('');
   const [talentResults, setTalentResults] = useState([]);
@@ -188,7 +189,7 @@ export default function PackageProfile({ packageId, onBack }) {
   if (!pkg) return null;
 
   if (viewingTalentId) {
-    return <TalentProfile talentId={viewingTalentId} onBack={() => setViewingTalentId(null)} />;
+    return <TalentProfile talentId={viewingTalentId} onBack={() => setViewingTalentId(null)} backLabel="Package" />;
   }
 
   return (
@@ -236,13 +237,64 @@ export default function PackageProfile({ packageId, onBack }) {
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <div style={sectionTitle}>Talent ({members.length})</div>
-          <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 20 }}>
+            <div style={{ display: 'flex', border: '1px solid #e2e2e2' }}>
+              {[['grid', 'Thumbs'], ['list', 'List']].map(([id, label]) => (
+                <button
+                  key={id}
+                  onClick={() => setView(id)}
+                  style={{
+                    height: 30, padding: '0 14px', border: 'none',
+                    background: view === id ? INK : '#fff', color: view === id ? '#fff' : '#777',
+                    fontSize: 10.5, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer',
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
             <button onClick={selectAll} style={{ border: 'none', background: 'none', color: '#666', cursor: 'pointer', fontSize: 11.5, textDecoration: 'underline' }}>Select all</button>
             <button onClick={selectNone} style={{ border: 'none', background: 'none', color: '#666', cursor: 'pointer', fontSize: 11.5, textDecoration: 'underline' }}>Select none</button>
           </div>
         </div>
 
-        {members.map((m) => (
+        {view === 'grid' && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '26px 18px', marginBottom: 12 }}>
+            {members.map((m) => (
+              <div key={m.id} style={{ position: 'relative' }}>
+                <input
+                  type="checkbox"
+                  checked={m.talent?.id ? checked.has(m.talent.id) : false}
+                  onChange={() => m.talent?.id && toggleCheck(m.talent.id)}
+                  style={{ position: 'absolute', top: 8, left: 8, zIndex: 1, width: 16, height: 16 }}
+                />
+                <button
+                  onClick={() => removeTalent(m.id)}
+                  style={{ position: 'absolute', top: 6, right: 6, zIndex: 1, width: 22, height: 22, border: 'none', background: 'rgba(255,255,255,0.9)', color: '#999', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}
+                >
+                  ×
+                </button>
+                <div
+                  onClick={() => m.talent?.id && setViewingTalentId(m.talent.id)}
+                  style={{ aspectRatio: '3/4', background: m.photoUrl ? `#f0f0f0 url(${m.photoUrl}) center/cover` : 'repeating-linear-gradient(135deg,#f6f6f6 0 9px,#efefef 9px 18px)', cursor: m.talent?.id ? 'pointer' : 'default' }}
+                />
+                <div style={{ paddingTop: 10 }}>
+                  <div
+                    onClick={() => m.talent?.id && setViewingTalentId(m.talent.id)}
+                    style={{ fontSize: 12.5, letterSpacing: '0.05em', cursor: m.talent?.id ? 'pointer' : 'default' }}
+                  >
+                    {m.talent?.name || 'Onbekend'}
+                  </div>
+                  <div style={{ fontSize: 10.5, color: m.client_selected ? '#1f9d55' : '#bbb', marginTop: 3 }}>
+                    {m.client_selected ? '✓ Selected' : 'Not selected'}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {view === 'list' && members.map((m) => (
           <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '10px 0', borderBottom: '1px solid #ececec', fontSize: 13.5 }}>
             <input
               type="checkbox"

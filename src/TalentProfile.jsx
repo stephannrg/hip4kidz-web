@@ -29,7 +29,7 @@ const SKILL_SUGGESTIONS = {
 
 const TABS = ['Overview', 'Gallery', 'Appearance', 'Skills', 'Guardian & Payout', 'Bookings'];
 
-export default function TalentProfile({ talentId, onBack }) {
+export default function TalentProfile({ talentId, onBack, backLabel = 'Talent' }) {
   const [tab, setTab] = useState('Overview');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -313,7 +313,7 @@ export default function TalentProfile({ talentId, onBack }) {
             fontSize: 11.5, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer', marginBottom: 28,
           }}
         >
-          ← Back to Talent
+          ← Back to {backLabel}
         </button>
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 24, paddingBottom: 24, borderBottom: '1px solid #ececec' }}>
           <div>
