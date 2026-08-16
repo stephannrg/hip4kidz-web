@@ -5,6 +5,7 @@ import TalentPage from './TalentPage.jsx';
 import PackagesPage from './PackagesPage.jsx';
 import DashboardPage from './DashboardPage.jsx';
 import ContactsPage from './ContactsPage.jsx';
+import BookingsPage from './BookingsPage.jsx';
 
 const INK = '#22252b';
 
@@ -103,9 +104,7 @@ export default function App() {
       {tab === 'packages' && <PackagesPage />}
       {tab === 'contacts' && <ContactsPage />}
       {tab === 'dash' && <DashboardPage />}
-      {tab === 'bookings' && (
-        <div style={{ padding: 96, textAlign: 'center', color: '#aaa', fontSize: 14 }}>Bookings — volgt hierna.</div>
-      )}
+      {tab === 'bookings' && <BookingsPage />}
     </div>
   );
 }

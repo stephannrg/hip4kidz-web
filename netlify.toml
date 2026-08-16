@@ -4,3 +4,17 @@
 
 [build.environment]
   NODE_VERSION = "20"
+
+# index.html verwijst naar de (per build uniek genaamde) JS/CSS-bestanden.
+# Zonder deze regel kan een browser een oude index.html blijven tonen,
+# waardoor je na een deploy een harde refresh nodig hebt om de nieuwe
+# versie te zien. Deze headers lossen dat structureel op.
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

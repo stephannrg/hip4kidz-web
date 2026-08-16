@@ -110,7 +110,6 @@ export default function TalentPage() {
   const [sel, setSel] = useState({}); // { facetKey: [waarden] }
   const [more, setMore] = useState(false);
   const [view, setView] = useState('grid');
-  const [drawer, setDrawer] = useState(null);
   const [profileId, setProfileId] = useState(null);
 
   useEffect(() => {
@@ -238,21 +237,6 @@ export default function TalentPage() {
     { key: 'htype', label: 'Hair type / length', options: facetOptions.htype },
   ];
 
-  const openDrawer = (t) => {
-    setDrawer({
-      talentId: t.id,
-      kind: 'Talent',
-      title: t.name,
-      subtitle: `${t.division || '—'} division · ${t.age ?? '—'} years · ${STATUS_LABELS[t.status] || t.status}`,
-      facts: [
-        { k: 'Shoe size', v: t.shoe_size || '—' },
-        { k: 'Clothing', v: t.kids_clothing_size || '—' },
-        { k: 'Hair', v: [t.hair_color, t.hairType].filter(Boolean).join(', ') || '—' },
-        { k: 'Eyes', v: t.eye_color || '—' },
-      ],
-    });
-  };
-
   if (loading) {
     return <div style={{ padding: 56, fontFamily: 'Helvetica Neue, Helvetica, -apple-system, Arial, sans-serif', color: '#999' }}>Laden...</div>;
   }
@@ -358,7 +342,7 @@ export default function TalentPage() {
               {results.map((t) => (
                 <div
                   key={t.id}
-                  onClick={() => openDrawer(t)}
+                  onClick={() => setProfileId(t.id)}
                   style={{ display: 'grid', gridTemplateColumns: '56px 1.6fr 96px 110px 130px 1fr 120px', gap: 22, alignItems: 'center', padding: '14px 0', borderBottom: '1px solid #ececec', cursor: 'pointer' }}
                 >
                   <div style={{ width: 44, height: 56, background: t.photoUrl ? `#f0f0f0 url(${t.photoUrl}) center/cover` : PLACEHOLDER_BG }} />
@@ -381,7 +365,7 @@ export default function TalentPage() {
           {view === 'grid' && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(178px, 1fr))', gap: '34px 22px' }}>
               {results.map((t) => (
-                <div key={t.id} onClick={() => openDrawer(t)} style={{ cursor: 'pointer' }}>
+                <div key={t.id} onClick={() => setProfileId(t.id)} style={{ cursor: 'pointer' }}>
                   <div style={{ position: 'relative', aspectRatio: '3/4', background: t.photoUrl ? '#f0f0f0' : PLACEHOLDER_BG, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', padding: 12, overflow: 'hidden' }}>
                     {t.photoUrl ? (
                       <img src={t.photoUrl} alt={t.name} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
@@ -413,34 +397,6 @@ export default function TalentPage() {
           )}
         </section>
       </main>
-
-      {drawer && (
-        <>
-          <div onClick={() => setDrawer(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(255,255,255,0.72)', backdropFilter: 'blur(3px)', zIndex: 40 }} />
-          <aside style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: 600, background: '#fff', zIndex: 41, borderLeft: '1px solid #e2e2e2', boxShadow: '-40px 0 80px rgba(0,0,0,0.06)', overflowY: 'auto', padding: 56 }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 24, marginBottom: 40 }}>
-              <div>
-                <div style={{ fontSize: 10.5, letterSpacing: '0.2em', textTransform: 'uppercase', color: '#aaa', marginBottom: 16 }}>{drawer.kind}</div>
-                <h2 style={{ margin: 0, fontSize: 32, fontWeight: 300, letterSpacing: '-0.025em', lineHeight: 1.15 }}>{drawer.title}</h2>
-                <div style={{ fontSize: 14, color: '#777', marginTop: 12 }}>{drawer.subtitle}</div>
-              </div>
-              <button onClick={() => setDrawer(null)} style={{ width: 34, height: 34, flex: 'none', border: '1px solid #e2e2e2', background: '#fff', fontSize: 16, lineHeight: 1, color: '#666', cursor: 'pointer' }}>×</button>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, background: '#ececec', border: '1px solid #ececec', marginBottom: 44 }}>
-              {drawer.facts.map((f) => (
-                <div key={f.k} style={{ background: '#fff', padding: 20 }}>
-                  <div style={{ fontSize: 10.5, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#aaa', marginBottom: 9 }}>{f.k}</div>
-                  <div style={{ fontSize: 15 }}>{f.v}</div>
-                </div>
-              ))}
-            </div>
-            <div style={{ display: 'flex', gap: 14 }}>
-              <button onClick={() => { setProfileId(drawer.talentId); setDrawer(null); }} style={{ flex: 1, height: 50, border: `1px solid ${INK}`, background: INK, color: '#fff', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer' }}>View full profile</button>
-              <button onClick={() => setDrawer(null)} style={{ height: 50, padding: '0 26px', border: '1px solid #e2e2e2', background: '#fff', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#666', cursor: 'pointer' }}>Close</button>
-            </div>
-          </aside>
-        </>
-      )}
     </div>
   );
 }
