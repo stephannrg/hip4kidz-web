@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from './lib/supabaseClient.js';
+import PackageProfile from './PackageProfile.jsx';
 
 const INK = '#22252b';
 const RED = '#d0021b';
@@ -10,14 +11,14 @@ export default function PackagesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [packages, setPackages] = useState([]);
-  const [detail, setDetail] = useState(null); // geopend package
+  const [profileId, setProfileId] = useState(null);
   const [creating, setCreating] = useState(false);
 
   const load = async () => {
     setLoading(true);
     const { data, error: pErr } = await supabase
       .from('packages')
-      .select('id, title, expires_at, created_at, contacts(name), package_items(id, client_selected)')
+      .select('id, title, created_at, contacts(name), package_items(id, client_selected)')
       .order('created_at', { ascending: false })
       .limit(200);
     if (pErr) setError(pErr.message);
@@ -29,37 +30,11 @@ export default function PackagesPage() {
     load();
   }, []);
 
-  const openPackage = async (pkgId) => {
-    setDetail({ loading: true });
-    const { data: pkg, error: pErr } = await supabase
-      .from('packages')
-      .select('*, contacts(name)')
-      .eq('id', pkgId)
-      .single();
-    if (pErr) {
-      setDetail({ error: pErr.message });
-      return;
-    }
-    const { data: members } = await supabase
-      .from('package_items')
-      .select('id, client_selected, client_comment, talent(id, name)')
-      .eq('package_id', pkgId);
-    setDetail({ package: pkg, members: members || [] });
-  };
-
-  const convertToBooking = async (pkgId, onlySelected) => {
-    const { data: bookingId, error: cErr } = await supabase.rpc('convert_package_to_booking', {
-      p_package_id: pkgId,
-      p_only_selected: onlySelected,
-    });
-    if (cErr) {
-      setError(cErr.message);
-      return;
-    }
-    alert(`Booking aangemaakt (id: ${bookingId}). Ga naar Bookings om 'm verder af te maken.`);
-  };
-
   if (loading) return <div style={{ padding: 56, fontFamily: "'Helvetica Neue', Helvetica, -apple-system, Arial, sans-serif", color: '#999' }}>Laden...</div>;
+
+  if (profileId) {
+    return <PackageProfile packageId={profileId} onBack={() => { setProfileId(null); load(); }} />;
+  }
 
   return (
     <div style={{ fontFamily: "'Helvetica Neue', Helvetica, -apple-system, Arial, sans-serif", color: INK }}>
@@ -83,7 +58,7 @@ export default function PackagesPage() {
           {packages.map((p) => (
             <div
               key={p.id}
-              onClick={() => openPackage(p.id)}
+              onClick={() => setProfileId(p.id)}
               style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 100px 100px 140px', gap: 20, padding: '14px 0', borderBottom: '1px solid #ececec', fontSize: 13.5, cursor: 'pointer' }}
             >
               <div>{p.title}</div>
@@ -102,56 +77,6 @@ export default function PackagesPage() {
           onClose={() => setCreating(false)}
           onCreated={() => { setCreating(false); load(); }}
         />
-      )}
-
-      {detail && (
-        <>
-          <div onClick={() => setDetail(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(255,255,255,0.72)', backdropFilter: 'blur(3px)', zIndex: 50 }} />
-          <aside style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: 560, background: '#fff', zIndex: 51, borderLeft: '1px solid #e2e2e2', boxShadow: '-40px 0 80px rgba(0,0,0,0.06)', overflowY: 'auto', padding: 48 }}>
-            <button onClick={() => setDetail(null)} style={{ position: 'absolute', top: 40, right: 40, width: 34, height: 34, border: '1px solid #e2e2e2', background: '#fff', fontSize: 16, lineHeight: 1, color: '#666', cursor: 'pointer' }}>×</button>
-
-            {detail.loading && <div style={{ color: '#aaa', fontSize: 13 }}>Laden...</div>}
-            {detail.error && <div style={{ color: RED, fontSize: 13 }}>Fout: {detail.error}</div>}
-
-            {detail.package && (
-              <>
-                <div style={{ fontSize: 10.5, letterSpacing: '0.2em', textTransform: 'uppercase', color: '#aaa', marginBottom: 16 }}>Package</div>
-                <h2 style={{ margin: '0 40px 8px 0', fontSize: 26, fontWeight: 300, letterSpacing: '-0.02em' }}>{detail.package.title}</h2>
-                <div style={{ fontSize: 13.5, color: '#777', marginBottom: 24 }}>{detail.package.contacts?.name || 'Geen klant gekoppeld'}</div>
-
-                <div style={{ fontSize: 12, color: '#999', marginBottom: 24, padding: 14, border: '1px solid #ececec', wordBreak: 'break-all' }}>
-                  Deelbare link: {window.location.origin}/package/{detail.package.view_token}
-                </div>
-
-                <div style={{ fontSize: 10.5, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#aaa', marginBottom: 14 }}>Talent ({detail.members.length})</div>
-                {detail.members.map((m) => (
-                  <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #ececec', fontSize: 13.5 }}>
-                    <span>{m.talent?.name || 'Onbekend'}</span>
-                    <span style={{ fontSize: 11, color: m.client_selected ? '#1f9d55' : '#bbb' }}>
-                      {m.client_selected ? '✓ Geselecteerd door klant' : 'Nog niet geselecteerd'}
-                    </span>
-                  </div>
-                ))}
-                {detail.members.length === 0 && <div style={{ color: '#aaa', fontSize: 13, marginBottom: 24 }}>Nog geen talent toegevoegd.</div>}
-
-                <div style={{ display: 'flex', gap: 12, marginTop: 32 }}>
-                  <button
-                    onClick={() => convertToBooking(detail.package.id, true)}
-                    style={{ flex: 1, height: 46, border: `1px solid ${INK}`, background: INK, color: '#fff', fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}
-                  >
-                    Convert selected → booking
-                  </button>
-                  <button
-                    onClick={() => convertToBooking(detail.package.id, false)}
-                    style={{ height: 46, padding: '0 18px', border: '1px solid #e2e2e2', background: '#fff', color: '#666', fontSize: 11.5, letterSpacing: '0.06em', textTransform: 'uppercase', cursor: 'pointer' }}
-                  >
-                    Convert all
-                  </button>
-                </div>
-              </>
-            )}
-          </aside>
-        </>
       )}
     </div>
   );
