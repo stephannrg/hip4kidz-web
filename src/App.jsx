@@ -4,6 +4,7 @@ import Login from './Login.jsx';
 import TalentPage from './TalentPage.jsx';
 import PackagesPage from './PackagesPage.jsx';
 import DashboardPage from './DashboardPage.jsx';
+import ContactsPage from './ContactsPage.jsx';
 
 const INK = '#22252b';
 
@@ -80,6 +81,7 @@ export default function App() {
             {navBtn('dash', 'Priority queue')}
             {navBtn('talent', 'Talent')}
             {navBtn('packages', 'Packages')}
+            {navBtn('contacts', 'Contacts')}
             {navBtn('bookings', 'Bookings')}
           </nav>
           <div style={{ flex: 1 }} />
@@ -99,6 +101,7 @@ export default function App() {
 
       {tab === 'talent' && <TalentPage />}
       {tab === 'packages' && <PackagesPage />}
+      {tab === 'contacts' && <ContactsPage />}
       {tab === 'dash' && <DashboardPage />}
       {tab === 'bookings' && (
         <div style={{ padding: 96, textAlign: 'center', color: '#aaa', fontSize: 14 }}>Bookings — volgt hierna.</div>
