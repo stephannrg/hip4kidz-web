@@ -28,7 +28,7 @@ export default function BookingsPage() {
     while (true) {
       const { data, error } = await supabase
         .from('bookings')
-        .select('id, description, status, shoot_date, client_name_raw, contacts(name)')
+        .select('id, description, status, shoot_date, created_at, client_name_raw, contacts(name)')
         .order('created_at', { ascending: false })
         .range(from, from + 999);
       if (error) {
@@ -82,17 +82,18 @@ export default function BookingsPage() {
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by description or client" style={{ ...inputStyle, width: 320 }} />
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '2.5fr 1.5fr 120px 130px', gap: 20, padding: '14px 0', borderBottom: '1px solid #ececec', fontSize: 10.5, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#aaa' }}>
-          <div>Description</div><div>Client</div><div>Shoot date</div><div>Status</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.3fr 110px 110px 120px', gap: 20, padding: '14px 0', borderBottom: '1px solid #ececec', fontSize: 10.5, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#aaa' }}>
+          <div>Description</div><div>Client</div><div>Booking date</div><div>Shoot date</div><div>Status</div>
         </div>
         {filtered.map((b) => (
           <div
             key={b.id}
             onClick={() => setProfileId(b.id)}
-            style={{ display: 'grid', gridTemplateColumns: '2.5fr 1.5fr 120px 130px', gap: 20, padding: '13px 0', borderBottom: '1px solid #ececec', fontSize: 13.5, cursor: 'pointer' }}
+            style={{ display: 'grid', gridTemplateColumns: '2fr 1.3fr 110px 110px 120px', gap: 20, padding: '13px 0', borderBottom: '1px solid #ececec', fontSize: 13.5, cursor: 'pointer' }}
           >
             <div>{b.description}</div>
             <div style={{ color: '#777' }}>{b.contacts?.name || b.client_name_raw || '—'}</div>
+            <div style={{ color: '#999' }}>{b.created_at ? new Date(b.created_at).toLocaleDateString('nl-NL') : '—'}</div>
             <div style={{ color: '#999' }}>{b.shoot_date || '—'}</div>
             <div style={{ color: STATUS_COLOR[b.status] || '#999' }}>{b.status}</div>
           </div>

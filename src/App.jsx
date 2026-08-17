@@ -6,6 +6,7 @@ import PackagesPage from './PackagesPage.jsx';
 import DashboardPage from './DashboardPage.jsx';
 import ContactsPage from './ContactsPage.jsx';
 import BookingsPage from './BookingsPage.jsx';
+import InvoicesPage from './InvoicesPage.jsx';
 
 const INK = '#22252b';
 
@@ -84,6 +85,7 @@ export default function App() {
             {navBtn('packages', 'Packages')}
             {navBtn('contacts', 'Contacts')}
             {navBtn('bookings', 'Bookings')}
+            {navBtn('invoices', 'Invoices')}
           </nav>
           <div style={{ flex: 1 }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 32 }}>
@@ -105,6 +107,7 @@ export default function App() {
       {tab === 'contacts' && <ContactsPage />}
       {tab === 'dash' && <DashboardPage />}
       {tab === 'bookings' && <BookingsPage />}
+      {tab === 'invoices' && <InvoicesPage />}
     </div>
   );
 }
