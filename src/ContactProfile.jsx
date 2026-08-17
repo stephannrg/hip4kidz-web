@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from './lib/supabaseClient.js';
+import NotesTasksAttachments from './NotesTasksAttachments.jsx';
 
 const INK = '#22252b';
 const RED = '#d0021b';
@@ -16,7 +17,7 @@ const Field = ({ label, value, onChange, type = 'text' }) => (
 );
 
 const TYPE_LABELS = { agency: 'Agency', brand: 'Brand', magazine: 'Magazine', producer: 'Producer', office: 'Office' };
-const TABS = ['Details', 'Staff', 'Bookings', 'Packages'];
+const TABS = ['Details', 'Staff', 'Bookings', 'Packages', 'Notes & Tasks'];
 
 export default function ContactProfile({ contactId, onBack }) {
   const [tab, setTab] = useState('Details');
@@ -241,6 +242,8 @@ export default function ContactProfile({ contactId, onBack }) {
             ))}
           </div>
         )}
+
+        {tab === 'Notes & Tasks' && <NotesTasksAttachments entityType="contact" entityId={contactId} />}
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from './lib/supabaseClient.js';
 import BookingProfile from './BookingProfile.jsx';
+import NotesTasksAttachments from './NotesTasksAttachments.jsx';
 
 const INK = '#22252b';
 const RED = '#d0021b';
@@ -27,7 +28,7 @@ const SKILL_SUGGESTIONS = {
   Accents: ['British', 'American'],
 };
 
-const TABS = ['Overview', 'Gallery', 'Appearance', 'Skills', 'Guardian & Payout', 'Bookings'];
+const TABS = ['Overview', 'Gallery', 'Appearance', 'Skills', 'Guardian & Payout', 'Bookings', 'Notes & Tasks'];
 
 export default function TalentProfile({ talentId, onBack, backLabel = 'Talent' }) {
   const [tab, setTab] = useState('Overview');
@@ -557,6 +558,8 @@ export default function TalentProfile({ talentId, onBack, backLabel = 'Talent' }
             ))}
           </div>
         )}
+
+        {tab === 'Notes & Tasks' && <NotesTasksAttachments entityType="talent" entityId={talentId} />}
       </div>
 
       {lightboxIndex !== null && (

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from './lib/supabaseClient.js';
 import BookingTalentDetail from './BookingTalentDetail.jsx';
+import NotesTasksAttachments from './NotesTasksAttachments.jsx';
 
 const INK = '#22252b';
 const RED = '#d0021b';
@@ -308,6 +309,8 @@ export default function BookingProfile({ bookingId, onBack }) {
           </div>
         ))}
         {linkedTalent.length === 0 && <div style={{ color: '#aaa', fontSize: 13 }}>Geen talent gekoppeld.</div>}
+
+        <NotesTasksAttachments entityType="booking" entityId={bookingId} />
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from './lib/supabaseClient.js';
 import TalentProfile from './TalentProfile.jsx';
+import NotesTasksAttachments from './NotesTasksAttachments.jsx';
 
 const INK = '#22252b';
 const RED = '#d0021b';
@@ -385,6 +386,8 @@ export default function PackageProfile({ packageId, onBack }) {
             </button>
           </div>
         )}
+
+        <NotesTasksAttachments entityType="package" entityId={packageId} />
       </div>
     </div>
   );
