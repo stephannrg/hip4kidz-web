@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from './lib/supabaseClient.js';
 import BookingProfile from './BookingProfile.jsx';
+import Pagination from './Pagination.jsx';
 
 const INK = '#22252b';
 const RED = '#d0021b';
@@ -13,12 +14,47 @@ const STATUS_COLOR = {
   closed: '#bbb', cancelled: '#bbb',
 };
 
+const STATUS_LABELS = {
+  open: 'Open', non_billable: 'Non-billable', billable: 'Billable',
+  invoice_ready: 'Invoice ready', invoiced: 'Invoiced',
+  paid: 'Paid', payout_pending: 'Payout pending', payout_completed: 'Payout completed',
+  closed: 'Closed', cancelled: 'Cancelled',
+};
+
+const chipStyle = (on) => ({
+  height: 30, padding: '0 13px', border: `1px solid ${on ? INK : '#e2e2e2'}`,
+  background: on ? INK : '#fff', color: on ? '#fff' : '#555',
+  fontSize: 11.5, cursor: 'pointer',
+});
+
 export default function BookingsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [bookings, setBookings] = useState([]);
   const [q, setQ] = useState('');
   const [profileId, setProfileId] = useState(null);
+  const [statusFilter, setStatusFilter] = useState(new Set());
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+
+  const toggleStatus = (s) => {
+    setStatusFilter((cur) => {
+      const next = new Set(cur);
+      if (next.has(s)) next.delete(s);
+      else next.add(s);
+      return next;
+    });
+  };
+
+  const clearFilters = () => {
+    setStatusFilter(new Set());
+    setDateFrom('');
+    setDateTo('');
+    setQ('');
+  };
 
   const load = async () => {
     setLoading(true);
@@ -51,14 +87,32 @@ export default function BookingsPage() {
 
   const filtered = useMemo(() => {
     const query = q.trim().toLowerCase();
-    if (!query) return bookings;
-    return bookings.filter(
-      (b) =>
-        b.description?.toLowerCase().includes(query) ||
-        b.contacts?.name?.toLowerCase().includes(query) ||
-        b.client_name_raw?.toLowerCase().includes(query)
-    );
-  }, [bookings, q]);
+    return bookings.filter((b) => {
+      if (query) {
+        const matches =
+          b.description?.toLowerCase().includes(query) ||
+          b.contacts?.name?.toLowerCase().includes(query) ||
+          b.client_name_raw?.toLowerCase().includes(query);
+        if (!matches) return false;
+      }
+      if (statusFilter.size > 0 && !statusFilter.has(b.status)) return false;
+      if (dateFrom && (!b.created_at || b.created_at.slice(0, 10) < dateFrom)) return false;
+      if (dateTo && (!b.created_at || b.created_at.slice(0, 10) > dateTo)) return false;
+      return true;
+    });
+  }, [bookings, q, statusFilter, dateFrom, dateTo]);
+
+  const activeFilterCount = statusFilter.size + (dateFrom ? 1 : 0) + (dateTo ? 1 : 0);
+
+  useEffect(() => {
+    setPage(1);
+  }, [q, statusFilter, dateFrom, dateTo, pageSize]);
+
+  const paged = useMemo(() => {
+    if (pageSize === 'all') return filtered;
+    const start = (page - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, page, pageSize]);
 
   if (loading) return <div style={{ padding: 56, fontFamily: "'Helvetica Neue', Helvetica, -apple-system, Arial, sans-serif", color: '#999' }}>Laden...</div>;
 
@@ -78,14 +132,50 @@ export default function BookingsPage() {
 
         {error && <div style={{ color: RED, fontSize: 13, marginBottom: 20 }}>Fout: {error}</div>}
 
-        <div style={{ borderTop: `1px solid ${INK}`, borderBottom: '1px solid #ececec', padding: '16px 0', marginBottom: 4 }}>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by description or client" style={{ ...inputStyle, width: 320 }} />
+        <div style={{ borderTop: `1px solid ${INK}`, borderBottom: showFilters ? 'none' : '1px solid #ececec', padding: '16px 0', marginBottom: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by description or client" style={{ ...inputStyle, width: 320 }} />
+            <button
+              onClick={() => setShowFilters((s) => !s)}
+              style={{
+                height: 38, padding: '0 20px', border: `1px solid ${INK}`,
+                background: showFilters ? INK : '#fff', color: showFilters ? '#fff' : INK,
+                fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', whiteSpace: 'nowrap',
+              }}
+            >
+              {showFilters ? 'Close filters' : activeFilterCount ? `Filters · ${activeFilterCount}` : 'Filters'}
+            </button>
+            {activeFilterCount > 0 && (
+              <button onClick={clearFilters} style={{ border: 'none', background: 'none', color: '#999', cursor: 'pointer', fontSize: 12.5 }}>Clear all</button>
+            )}
+          </div>
         </div>
+
+        {showFilters && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '28px 40px', padding: '20px 0 40px', borderBottom: '1px solid #ececec', marginBottom: 4 }}>
+            <div style={{ gridColumn: 'span 2' }}>
+              <div style={{ fontSize: 10.5, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#aaa', marginBottom: 14 }}>Status</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {Object.entries(STATUS_LABELS).map(([v, l]) => (
+                  <button key={v} onClick={() => toggleStatus(v)} style={chipStyle(statusFilter.has(v))}>{l}</button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: 10.5, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#aaa', marginBottom: 14 }}>Booking date</div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} style={{ ...inputStyle, height: 36 }} />
+                <span style={{ color: '#999' }}>–</span>
+                <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} style={{ ...inputStyle, height: 36 }} />
+              </div>
+            </div>
+          </div>
+        )}
 
         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.3fr 110px 110px 120px', gap: 20, padding: '14px 0', borderBottom: '1px solid #ececec', fontSize: 10.5, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#aaa' }}>
           <div>Description</div><div>Client</div><div>Booking date</div><div>Shoot date</div><div>Status</div>
         </div>
-        {filtered.map((b) => (
+        {paged.map((b) => (
           <div
             key={b.id}
             onClick={() => setProfileId(b.id)}
@@ -99,6 +189,10 @@ export default function BookingsPage() {
           </div>
         ))}
         {filtered.length === 0 && <div style={{ padding: '60px 0', textAlign: 'center', color: '#aaa' }}>Geen bookings gevonden.</div>}
+
+        {filtered.length > 0 && (
+          <Pagination page={page} pageSize={pageSize} total={filtered.length} onPageChange={setPage} onPageSizeChange={setPageSize} />
+        )}
       </main>
     </div>
   );

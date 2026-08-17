@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from './lib/supabaseClient.js';
 import BookingProfile from './BookingProfile.jsx';
+import Pagination from './Pagination.jsx';
 
 const INK = '#22252b';
 const RED = '#d0021b';
@@ -23,6 +24,8 @@ export default function InvoicesPage() {
   const [statusFilter, setStatusFilter] = useState(new Set());
   const [showFilters, setShowFilters] = useState(false);
   const [profileBookingId, setProfileBookingId] = useState(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
 
   const load = async () => {
     setLoading(true);
@@ -76,6 +79,16 @@ export default function InvoicesPage() {
       return true;
     });
   }, [invoices, q, statusFilter]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [q, statusFilter, pageSize]);
+
+  const paged = useMemo(() => {
+    if (pageSize === 'all') return filtered;
+    const start = (page - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, page, pageSize]);
 
   const totalOutstanding = filtered
     .filter((i) => ['sent', 'invoiced', 'overdue'].includes(i.status))
@@ -134,7 +147,7 @@ export default function InvoicesPage() {
         <div style={{ display: 'grid', gridTemplateColumns: '110px 2fr 1.3fr 110px 110px 110px', gap: 20, padding: '14px 0', borderBottom: '1px solid #ececec', fontSize: 10.5, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#aaa' }}>
           <div>Number</div><div>Booking</div><div>Client</div><div>Due date</div><div>Amount</div><div>Status</div>
         </div>
-        {filtered.map((inv) => (
+        {paged.map((inv) => (
           <div
             key={inv.id}
             onClick={() => setProfileBookingId(inv.booking_id)}
@@ -149,6 +162,10 @@ export default function InvoicesPage() {
           </div>
         ))}
         {filtered.length === 0 && <div style={{ padding: '60px 0', textAlign: 'center', color: '#aaa' }}>Geen facturen gevonden.</div>}
+
+        {filtered.length > 0 && (
+          <Pagination page={page} pageSize={pageSize} total={filtered.length} onPageChange={setPage} onPageSizeChange={setPageSize} />
+        )}
       </main>
     </div>
   );

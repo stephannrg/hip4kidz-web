@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from './lib/supabaseClient.js';
+import Pagination from './Pagination.jsx';
 import TalentProfile from './TalentProfile.jsx';
 
 // ============================================================
@@ -222,6 +223,19 @@ export default function TalentPage() {
 
   const results = useMemo(() => talent.filter(matches), [talent, q, sel]);
 
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+
+  useEffect(() => {
+    setPage(1);
+  }, [q, sel, pageSize]);
+
+  const paged = useMemo(() => {
+    if (pageSize === 'all') return results;
+    const start = (page - 1) * pageSize;
+    return results.slice(start, start + pageSize);
+  }, [results, page, pageSize]);
+
   const chips = [];
   Object.entries(sel).forEach(([key, vals]) => (vals || []).forEach((v) => chips.push({ key, val: v })));
 
@@ -339,7 +353,7 @@ export default function TalentPage() {
               <div style={{ display: 'grid', gridTemplateColumns: '56px 1.6fr 96px 110px 130px 1fr 120px', gap: 22, paddingBottom: 14, borderBottom: `1px solid ${INK}`, fontSize: 10.5, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#aaa' }}>
                 <div /><div>Name</div><div>Age</div><div>Shoe</div><div>Clothing</div><div>Hair / eyes</div><div style={{ textAlign: 'right' }}>Status</div>
               </div>
-              {results.map((t) => (
+              {paged.map((t) => (
                 <div
                   key={t.id}
                   onClick={() => setProfileId(t.id)}
@@ -364,7 +378,7 @@ export default function TalentPage() {
 
           {view === 'grid' && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(178px, 1fr))', gap: '34px 22px' }}>
-              {results.map((t) => (
+              {paged.map((t) => (
                 <div key={t.id} onClick={() => setProfileId(t.id)} style={{ cursor: 'pointer' }}>
                   <div style={{ position: 'relative', aspectRatio: '3/4', background: t.photoUrl ? '#f0f0f0' : PLACEHOLDER_BG, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', padding: 12, overflow: 'hidden' }}>
                     {t.photoUrl ? (
@@ -394,6 +408,10 @@ export default function TalentPage() {
 
           {results.length === 0 && (
             <div style={{ padding: '120px 0', textAlign: 'center', color: '#aaa', fontSize: 14 }}>No talent matches these filters.</div>
+          )}
+
+          {results.length > 0 && (
+            <Pagination page={page} pageSize={pageSize} total={results.length} onPageChange={setPage} onPageSizeChange={setPageSize} />
           )}
         </section>
       </main>

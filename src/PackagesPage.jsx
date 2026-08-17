@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { supabase } from './lib/supabaseClient.js';
 import PackageProfile from './PackageProfile.jsx';
+import Pagination from './Pagination.jsx';
 
 const INK = '#22252b';
 const RED = '#d0021b';
@@ -13,6 +14,14 @@ export default function PackagesPage() {
   const [packages, setPackages] = useState([]);
   const [profileId, setProfileId] = useState(null);
   const [creating, setCreating] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+
+  const paged = useMemo(() => {
+    if (pageSize === 'all') return packages;
+    const start = (page - 1) * pageSize;
+    return packages.slice(start, start + pageSize);
+  }, [packages, page, pageSize]);
 
   const load = async () => {
     setLoading(true);
@@ -68,7 +77,7 @@ export default function PackagesPage() {
           <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 100px 100px 140px', gap: 20, padding: '14px 0', borderBottom: '1px solid #ececec', fontSize: 10.5, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#aaa' }}>
             <div>Description</div><div>Client</div><div>Talent</div><div>Selected</div><div>Created</div>
           </div>
-          {packages.map((p) => (
+          {paged.map((p) => (
             <div
               key={p.id}
               onClick={() => setProfileId(p.id)}
@@ -83,6 +92,10 @@ export default function PackagesPage() {
           ))}
           {packages.length === 0 && <div style={{ padding: '60px 0', textAlign: 'center', color: '#aaa' }}>Nog geen packages.</div>}
         </div>
+
+        {packages.length > 0 && (
+          <Pagination page={page} pageSize={pageSize} total={packages.length} onPageChange={setPage} onPageSizeChange={(s) => { setPageSize(s); setPage(1); }} />
+        )}
       </main>
 
       {creating && (

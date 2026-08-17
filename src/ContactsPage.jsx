@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from './lib/supabaseClient.js';
 import ContactProfile from './ContactProfile.jsx';
+import Pagination from './Pagination.jsx';
 
 const INK = '#22252b';
 const RED = '#d0021b';
@@ -15,6 +16,12 @@ export default function ContactsPage() {
   const [q, setQ] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [profileId, setProfileId] = useState(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+
+  useEffect(() => {
+    setPage(1);
+  }, [q, typeFilter, pageSize]);
 
   const load = async () => {
     setLoading(true);
@@ -39,6 +46,12 @@ export default function ContactsPage() {
       return true;
     });
   }, [contacts, q, typeFilter]);
+
+  const paged = useMemo(() => {
+    if (pageSize === 'all') return filtered;
+    const start = (page - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, page, pageSize]);
 
   if (loading) return <div style={{ padding: 56, fontFamily: "'Helvetica Neue', Helvetica, -apple-system, Arial, sans-serif", color: '#999' }}>Laden...</div>;
 
@@ -71,7 +84,7 @@ export default function ContactsPage() {
         <div style={{ display: 'grid', gridTemplateColumns: '2fr 120px 1.5fr 1fr', gap: 20, padding: '14px 0', borderBottom: '1px solid #ececec', fontSize: 10.5, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#aaa' }}>
           <div>Name</div><div>Type</div><div>Email</div><div>Phone</div>
         </div>
-        {filtered.map((c) => (
+        {paged.map((c) => (
           <div
             key={c.id}
             onClick={() => setProfileId(c.id)}
@@ -84,6 +97,10 @@ export default function ContactsPage() {
           </div>
         ))}
         {filtered.length === 0 && <div style={{ padding: '60px 0', textAlign: 'center', color: '#aaa' }}>Geen contacten gevonden.</div>}
+
+        {filtered.length > 0 && (
+          <Pagination page={page} pageSize={pageSize} total={filtered.length} onPageChange={setPage} onPageSizeChange={setPageSize} />
+        )}
       </main>
     </div>
   );
