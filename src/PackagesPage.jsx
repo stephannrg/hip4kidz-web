@@ -16,13 +16,26 @@ export default function PackagesPage() {
 
   const load = async () => {
     setLoading(true);
-    const { data, error: pErr } = await supabase
-      .from('packages')
-      .select('id, title, created_at, contacts(name), package_items(id, client_selected)')
-      .order('created_at', { ascending: false })
-      .limit(200);
+    let all = [];
+    let from = 0;
+    let pErr = null;
+    while (true) {
+      const { data, error } = await supabase
+        .from('packages')
+        .select('id, title, created_at, contacts(name), package_items(id, client_selected)')
+        .order('created_at', { ascending: false })
+        .range(from, from + 999);
+      if (error) {
+        pErr = error;
+        break;
+      }
+      if (!data || data.length === 0) break;
+      all = all.concat(data);
+      if (data.length < 1000) break;
+      from += 1000;
+    }
     if (pErr) setError(pErr.message);
-    setPackages(data || []);
+    setPackages(all);
     setLoading(false);
   };
 

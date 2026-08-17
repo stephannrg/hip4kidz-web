@@ -22,13 +22,26 @@ export default function BookingsPage() {
 
   const load = async () => {
     setLoading(true);
-    const { data, error: bErr } = await supabase
-      .from('bookings')
-      .select('id, description, status, shoot_date, client_name_raw, contacts(name)')
-      .order('created_at', { ascending: false })
-      .limit(500);
+    let all = [];
+    let from = 0;
+    let bErr = null;
+    while (true) {
+      const { data, error } = await supabase
+        .from('bookings')
+        .select('id, description, status, shoot_date, client_name_raw, contacts(name)')
+        .order('created_at', { ascending: false })
+        .range(from, from + 999);
+      if (error) {
+        bErr = error;
+        break;
+      }
+      if (!data || data.length === 0) break;
+      all = all.concat(data);
+      if (data.length < 1000) break;
+      from += 1000;
+    }
     if (bErr) setError(bErr.message);
-    setBookings(data || []);
+    setBookings(all);
     setLoading(false);
   };
 
