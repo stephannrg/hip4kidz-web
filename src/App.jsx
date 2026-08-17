@@ -7,6 +7,7 @@ import DashboardPage from './DashboardPage.jsx';
 import ContactsPage from './ContactsPage.jsx';
 import BookingsPage from './BookingsPage.jsx';
 import InvoicesPage from './InvoicesPage.jsx';
+import logo from './assets/logo-h4k.png';
 
 const INK = '#22252b';
 
@@ -76,7 +77,7 @@ export default function App() {
       <header style={{ position: 'sticky', top: 0, zIndex: 20, background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(20px)', borderBottom: '1px solid #ececec' }}>
         <div style={{ maxWidth: 1640, margin: '0 auto', padding: '0 56px', height: 66, display: 'flex', alignItems: 'center', gap: 56 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <span style={{ fontSize: 15, fontWeight: 600, letterSpacing: '-0.01em' }}>Hip4Kidz</span>
+            <img src={logo} alt="Hip4Kidz" style={{ height: 20, display: 'block' }} />
             <span style={{ fontSize: 11, letterSpacing: '0.16em', color: '#999', textTransform: 'uppercase', paddingLeft: 14, borderLeft: '1px solid #e2e2e2' }}>Agency</span>
           </div>
           <nav style={{ display: 'flex', alignItems: 'center', gap: 36, height: '100%' }}>
