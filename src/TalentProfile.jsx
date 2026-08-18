@@ -51,6 +51,8 @@ export default function TalentProfile({ talentId, onBack, backLabel = 'Talent' }
   const [guardianSearch, setGuardianSearch] = useState('');
   const [guardianSearchResults, setGuardianSearchResults] = useState([]);
   const [photos, setPhotos] = useState([]);
+  const [guardianPhotos, setGuardianPhotos] = useState([]);
+  const [guardianPhotosLoading, setGuardianPhotosLoading] = useState(false);
   const [photosLoading, setPhotosLoading] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(null);
 
@@ -154,6 +156,37 @@ export default function TalentProfile({ talentId, onBack, backLabel = 'Talent' }
     loadPhotos();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, talentId]);
+
+  const loadGuardianPhotos = async () => {
+    setGuardianPhotosLoading(true);
+    const { data: rows } = await supabase
+      .from('guardian_photos')
+      .select('*')
+      .eq('talent_id', talentId)
+      .order('created_at', { ascending: false });
+    const withUrls = await Promise.all(
+      (rows || []).map(async (row) => {
+        const { data: signed } = await supabase.storage.from('guardian-uploads').createSignedUrl(row.storage_path, 3600);
+        return { ...row, url: signed?.signedUrl || null };
+      })
+    );
+    setGuardianPhotos(withUrls);
+    setGuardianPhotosLoading(false);
+  };
+
+  useEffect(() => {
+    if (tab !== 'Gallery' || !talentId) return;
+    loadGuardianPhotos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, talentId]);
+
+  const reviewGuardianPhoto = async (photoId, status) => {
+    await supabase
+      .from('guardian_photos')
+      .update({ status, reviewed_at: new Date().toISOString() })
+      .eq('id', photoId);
+    setGuardianPhotos((gp) => gp.map((p) => (p.id === photoId ? { ...p, status } : p)));
+  };
 
   useEffect(() => {
     if (lightboxIndex === null) return;
@@ -356,6 +389,34 @@ export default function TalentProfile({ talentId, onBack, backLabel = 'Talent' }
                   </div>
                 ))}
               </div>
+            )}
+
+            {(guardianPhotosLoading || guardianPhotos.length > 0) && (
+              <>
+                <div style={{ ...sectionTitle, marginTop: 40 }}>
+                  Door ouder geupload {guardianPhotos.filter((p) => p.status === 'pending').length > 0 && `— ${guardianPhotos.filter((p) => p.status === 'pending').length} te beoordelen`}
+                </div>
+                {guardianPhotosLoading && <div style={{ color: '#aaa', fontSize: 13 }}>Laden...</div>}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 14 }}>
+                  {guardianPhotos.map((p) => (
+                    <div key={p.id}>
+                      <div style={{ aspectRatio: '3/4', overflow: 'hidden', background: '#f0f0f0', marginBottom: 8 }}>
+                        {p.url && <img src={p.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />}
+                      </div>
+                      {p.status === 'pending' ? (
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button onClick={() => reviewGuardianPhoto(p.id, 'approved')} style={{ flex: 1, height: 30, border: '1px solid #1f9d55', background: '#fff', color: '#1f9d55', fontSize: 10.5, letterSpacing: '0.04em', textTransform: 'uppercase', cursor: 'pointer' }}>Goedkeuren</button>
+                          <button onClick={() => reviewGuardianPhoto(p.id, 'rejected')} style={{ flex: 1, height: 30, border: '1px solid #d0021b', background: '#fff', color: '#d0021b', fontSize: 10.5, letterSpacing: '0.04em', textTransform: 'uppercase', cursor: 'pointer' }}>Afwijzen</button>
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 11, textAlign: 'center', color: p.status === 'approved' ? '#1f9d55' : '#d0021b' }}>
+                          {p.status === 'approved' ? 'Goedgekeurd' : 'Afgewezen'}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
           </div>
         )}
